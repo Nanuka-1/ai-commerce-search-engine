@@ -10,6 +10,8 @@ venv/
 
 # Pytest
 .pytest_cache/
+.coverage
+htmlcov/
 
 # IDE
 .idea/
