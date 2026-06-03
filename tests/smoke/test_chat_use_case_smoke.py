@@ -1,5 +1,5 @@
 from app.use_cases.chat_use_case import ChatUseCase
-
+from types import SimpleNamespace
 
 def test_chat_use_case_greeting(db):
     use_case = ChatUseCase()
@@ -107,3 +107,69 @@ def test_chat_use_case_conversation_flow(db):
     )
 
     assert result["type"] == "product_search"
+
+def test_chat_use_case_price_check_missing_identifier(db):
+    use_case = ChatUseCase()
+
+    result = use_case.process_text(
+        db=db,
+        user_id="price_missing_user",
+        message="price",
+        locale="en",
+    )
+
+    assert result["type"] == "price_check"
+    assert "message" in result
+
+def test_chat_use_case_build_sku_response_not_found():
+    use_case = ChatUseCase()
+
+    product_result = SimpleNamespace(
+        items=[],
+        base_sku="UNKNOWN-SKU",
+        detected_size=None,
+    )
+
+    result = use_case._build_sku_response(
+        user_id="sku_not_found_user",
+        product_result=product_result,
+        locale="en",
+    )
+
+    assert result["type"] == "sku_search"
+    assert result["data"]["results"]["sku"] == "UNKNOWN-SKU"
+    assert result["data"]["results"]["item"] is None
+    assert "message" in result
+
+
+def test_chat_use_case_build_price_response_not_found():
+    use_case = ChatUseCase()
+
+    product_result = SimpleNamespace(
+        items=[],
+        base_sku="UNKNOWN-SKU",
+    )
+
+    result = use_case._build_price_response(
+        user_id="price_not_found_user",
+        product_result=product_result,
+        locale="en",
+    )
+
+    assert result["type"] == "price_check"
+    assert result["data"]["results"]["sku"] == "UNKNOWN-SKU"
+    assert result["data"]["results"]["price"] is None
+    assert "message" in result
+
+
+def test_chat_use_case_price_check_by_query(db):
+    use_case = ChatUseCase()
+
+    result = use_case.process_text(
+        db=db,
+        user_id="price_query_user",
+        message="price nike",
+        locale="en",
+    )
+
+    assert result["type"] == "price_check"

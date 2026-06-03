@@ -238,8 +238,14 @@ class ChatUseCase:
         query = extract_price_query(message)
 
         if query:
-            products = search_products(db, query)
-            items = products["items"]
+            search_request = build_search_request(
+                message=query,
+                limit=limit,
+                offset=offset,
+            )
+
+            products = search_products(db, search_request)
+            items = products.items
 
             log_search_event(
                 db=db,
@@ -248,18 +254,20 @@ class ChatUseCase:
                 locale=locale,
                 intent="price_check",
                 items=items,
+                search_context=products,
             )
 
             if len(items) == 1:
-                item = items[0]
-                product_result = {
-                    "sku": item.sku,
-                    "item": item,
-                }
+                product_result = products
                 return self._build_price_response(user_id, product_result, locale)
 
             if len(items) > 1:
-                return self._build_search_response("price_check", user_id, products, locale)
+                return self._build_search_response(
+                    "price_check",
+                    user_id,
+                    products,
+                    locale,
+                )
 
         return {
             "type": "price_check",
