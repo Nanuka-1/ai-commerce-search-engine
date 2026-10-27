@@ -41,7 +41,6 @@ def create_search_event(
     )
     db.add(event)
     db.commit()
-    db.refresh(event)
     return event
 
 

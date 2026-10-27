@@ -10,6 +10,6 @@ from app.schemas.product_classification import (
 class ProductClassificationRule(BaseModel):
     keywords: list[str]
 
-    style_group: StyleGroup
+    style_group: StyleGroup | None = None
     sport_type: SportType
     usage_type: UsageType

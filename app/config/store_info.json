@@ -1,0 +1,32 @@
+{
+  "_source": "topsport.ge/ka/terms-conditions, /ka/stores, подвал сайта — 09.10.2026. Тексты только из правил магазина; менять здесь, не в коде.",
+  "links": {
+    "stores": {"ka": "https://topsport.ge/ka/stores", "en": "https://topsport.ge/en/stores"},
+    "terms": {"ka": "https://topsport.ge/ka/terms-conditions", "en": "https://topsport.ge/en/terms-conditions"},
+    "contact": {"ka": "https://topsport.ge/ka/contact", "en": "https://topsport.ge/en/contact"}
+  },
+  "phone": "032 205 21 20",
+  "email": "info@topsport.ge",
+  "answers": {
+    "delivery": {
+      "ka": "მიწოდება 3–5 სამუშაო დღეში, საფასური 5 ლარი 🚚 შეკვეთა მუშავდება 1 სამუშაო დღეში (ორშ–პარ 10:00–18:00, შაბ 10:00–14:00). მიწოდება ხდება შენობამდე/სადარბაზომდე. დეტალები: {terms}",
+      "en": "Delivery takes 3–5 working days and costs 5 GEL 🚚 Orders are processed within 1 working day (Mon–Fri 10:00–18:00, Sat 10:00–14:00). Delivery is to the building/entrance. Details: {terms}"
+    },
+    "returns": {
+      "ka": "პროდუქტის დაბრუნება ან გაცვლა შესაძლებელია მიღებიდან 14 კალენდარული დღის განმავლობაში — გამოუყენებელი, დაუზიანებელი, სრული კომპლექტაციით და ორიგინალ შეფუთვაში. დაბრუნება ხდება ონლაინ მენეჯერთან შეთანხმებულ ფილიალში. საცურაო კოსტუმები, თეთრეული და წყლის აქსესუარები არ ბრუნდება. დეტალები: {terms}",
+      "en": "You can return or exchange an item within 14 calendar days of receiving it — unused, undamaged, complete and in its original packaging. Returns are made at a branch agreed with the online manager. Swimwear, underwear and water accessories cannot be returned. Details: {terms}"
+    },
+    "payment": {
+      "ka": "გადახდა ხდება საიტზე უსაფრთხო და ოფიციალური გადახდის არხებით. თანხის დაბრუნება — იმავე მეთოდით, რომლითაც შეიძინეთ. დეტალები: {terms}",
+      "en": "Payment is made on the website through secure official payment channels. Refunds go back to the same payment method. Details: {terms}"
+    },
+    "stores": {
+      "ka": "ჩვენი მაღაზიები გვაქვს თბილისში, ბათუმსა და ზუგდიდში 📍 მისამართები: {stores}. სამუშაო საათები დააზუსტეთ ნომერზე {phone}.",
+      "en": "We have stores in Tbilisi, Batumi and Zugdidi 📍 Addresses: {stores}. Please check opening hours by phone {phone}."
+    },
+    "contact": {
+      "ka": "დაგვიკავშირდით: ☎️ {phone}, ✉️ {email}. მისამართი: ვაჟა-ფშაველას 10, თბილისი.",
+      "en": "Contact us: ☎️ {phone}, ✉️ {email}. Address: 10 Vazha-Pshavela Ave, Tbilisi."
+    }
+  }
+}

@@ -14,10 +14,12 @@ from app.repositories.conversation_repository import (
     create_session,
     create_search_task_record,
     get_latest_active_search_task,
+    get_active_search_tasks,
     update_search_task_record,
     complete_search_task_record,
     update_session_context_record,
     expire_search_task_record,
+    cancel_search_task_record,
 )
 
 
@@ -124,6 +126,23 @@ def classify_follow_up_message(message: str) -> str:
 
     return "general_refinement"
 
+def cancel_active_search_tasks_for_session(
+    db: Session,
+    session: ConversationSession,
+    reason: str = "replaced_by_new_task",
+) -> None:
+    active_tasks = get_active_search_tasks_for_session(
+        db=db,
+        session=session,
+    )
+
+    for task in active_tasks:
+        cancel_search_task(
+            db=db,
+            task=task,
+            reason=reason,
+        )
+
 
 def create_search_task(
     db: Session,
@@ -133,6 +152,8 @@ def create_search_task(
     detected_size: str | None = None,
     current_step: TaskStep | str | None = None,
 ) -> SearchTask:
+    # 15.10: активные задачи отменяет сам create_search_task_record — здесь второй раз не ищем (лишний SELECT)
+    
     return create_search_task_record(
         db=db,
         session=session,
@@ -158,7 +179,14 @@ def get_active_search_task(
 
     return task
 
-
+def get_active_search_tasks_for_session(
+    db: Session,
+    session: ConversationSession,
+) -> list[SearchTask]:
+    return get_active_search_tasks(
+        db=db,
+        session=session,
+    )
 
 def update_search_task_query(
     db: Session,
@@ -187,4 +215,13 @@ def complete_search_task(
     )
 
 
-
+def cancel_search_task(
+    db: Session,
+    task: SearchTask,
+    reason: str = "cancelled",
+) -> SearchTask:
+    return cancel_search_task_record(
+        db=db,
+        task=task,
+        reason=reason,
+    )

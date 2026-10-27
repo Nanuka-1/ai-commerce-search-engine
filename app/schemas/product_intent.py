@@ -1,3 +1,5 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 from app.schemas.product_classification import (
@@ -8,6 +10,6 @@ from app.schemas.product_classification import (
 
 
 class ProductIntent(BaseModel):
-    style_group: StyleGroup
-    sport_type: SportType
+    style_group: Optional[StyleGroup] = None
+    sport_type: Optional[SportType] = None
     usage_type: UsageType

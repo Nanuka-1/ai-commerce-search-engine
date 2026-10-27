@@ -18,3 +18,11 @@ class StyleGroup(str, Enum):
     FOOTBALL_BOOTS = "football_boots"
     RUNNING_LIFESTYLE = "running_lifestyle"
     LIFESTYLE_SNEAKERS = "lifestyle_sneakers"
+
+class ProductType(str, Enum):
+    FOOTWEAR = "footwear"
+    CLOTHING = "clothing"
+    ACCESSORY = "accessory"
+    NUTRITION = "nutrition"
+    EQUIPMENT = "equipment"
+    OTHER = "other"

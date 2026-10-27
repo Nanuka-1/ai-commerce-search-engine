@@ -1,0 +1,205 @@
+/* Виджет чата TopSport. Все классы с префиксом tsw- — чтобы не конфликтовать со стилями сайта магазина. */
+.tsw-launcher, .tsw-panel {
+  --tsw-blue: #134a8e; --tsw-blue-dark: #0e3870; --tsw-red: #e3262f;
+  --tsw-bg: #f3f5f9; --tsw-line: #e2e6ee; --tsw-text: #1d2433; --tsw-muted: #6b7486;
+  font-family: "Segoe UI", "Noto Sans Georgian", "BPG Arial", Arial, sans-serif;
+  box-sizing: border-box;
+}
+.tsw-panel *, .tsw-panel *::before, .tsw-panel *::after { box-sizing: border-box; }
+
+.tsw-launcher {
+  position: fixed; right: 20px; bottom: 20px; z-index: 2147483000;
+  width: 60px; height: 60px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--tsw-red); color: #fff; font-size: 28px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+}
+.tsw-launcher:hover { transform: scale(1.05); }
+
+.tsw-panel {
+  position: fixed; right: 20px; bottom: 20px; z-index: 2147483000;
+  width: 380px; height: min(640px, calc(100vh - 40px));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--tsw-bg); color: var(--tsw-text);
+  border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+}
+/* телефон — весь экран */
+@media (max-width: 480px) {
+  .tsw-panel { right: 0; bottom: 0; width: 100vw; height: 100dvh; border-radius: 0; }
+}
+
+.tsw-header {
+  background: var(--tsw-blue); color: #fff; padding: 10px 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.tsw-logo { font-weight: 800; font-size: 16px; letter-spacing: .4px; }
+.tsw-logo span { color: var(--tsw-red); }
+.tsw-title { flex: 1; font-size: 12px; opacity: .85; }
+.tsw-lang { display: flex; gap: 3px; }
+.tsw-lang button {
+  background: transparent; color: #fff; border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 5px; padding: 2px 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.tsw-lang button.active { background: #fff; color: var(--tsw-blue); }
+.tsw-close { background: none; border: 0; color: #fff; font-size: 24px; line-height: 1; cursor: pointer; padding: 0 2px; }
+
+.tsw-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.tsw-msg { display: flex; flex-direction: column; max-width: 92%; }
+.tsw-msg.user { align-self: flex-end; align-items: flex-end; }
+.tsw-msg.bot { align-self: flex-start; max-width: 100%; min-width: 0; }
+.tsw-msg.bot:has(.tsw-cards) { width: 100%; }      /* лента карточек — во всю ширину панели, без лишней полосы */
+.tsw-bubble {
+  padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.45;
+  white-space: pre-wrap; word-break: break-word;
+}
+.tsw-msg.user .tsw-bubble { background: var(--tsw-blue); color: #fff; border-bottom-right-radius: 4px; }
+.tsw-msg.bot .tsw-bubble { background: #fff; border: 1px solid var(--tsw-line); border-bottom-left-radius: 4px; }
+.tsw-bubble a { color: var(--tsw-blue); }
+.tsw-bubble.typing { color: var(--tsw-muted); font-style: italic; }
+.tsw-ai { font-size: 11px; color: #7a4cc2; margin-top: 3px; }
+
+/* карточки — горизонтальная лента, листается пальцем/колёсиком */
+.tsw-cards {
+  display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; padding-bottom: 6px;
+  scroll-snap-type: x mandatory; width: 100%; max-width: 100%;
+  scrollbar-width: thin; scrollbar-color: #c9d0dc transparent;      /* тонкая полоса прокрутки */
+}
+.tsw-cards::-webkit-scrollbar { height: 6px; }
+.tsw-cards::-webkit-scrollbar-thumb { background: #c9d0dc; border-radius: 3px; }
+.tsw-card {
+  flex: 0 0 150px; scroll-snap-align: start; background: #fff;
+  border: 1px solid var(--tsw-line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
+}
+.tsw-card-img { position: relative; aspect-ratio: 1 / 1; background: #fafbfc; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+.tsw-card-img img { width: 100%; height: 100%; object-fit: contain; }
+.tsw-off {
+  position: absolute; left: 6px; top: 6px; background: var(--tsw-red); color: #fff;
+  font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px;
+}
+.tsw-card-body { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.tsw-brand { font-size: 10px; color: var(--tsw-muted); text-transform: uppercase; letter-spacing: .4px; }
+.tsw-name {
+  font-size: 12px; font-weight: 600; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tsw-price { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; }
+.tsw-now { font-weight: 700; color: var(--tsw-blue); font-size: 14px; }
+.tsw-old { color: var(--tsw-muted); text-decoration: line-through; font-size: 11px; }
+.tsw-sizes { display: flex; flex-wrap: wrap; gap: 3px; }
+.tsw-sizes span { border: 1px solid var(--tsw-line); border-radius: 4px; font-size: 10px; padding: 0 4px; }
+.tsw-sizes span.hit { border-color: var(--tsw-blue); color: var(--tsw-blue); font-weight: 700; }
+.tsw-go {
+  margin-top: auto; text-align: center; background: var(--tsw-blue); color: #fff; text-decoration: none;
+  border-radius: 7px; padding: 5px; font-size: 12px; font-weight: 600;
+}
+.tsw-go:hover { background: var(--tsw-blue-dark); }
+.tsw-site {
+  align-self: flex-start; margin-top: 6px; color: var(--tsw-blue); font-size: 13px; font-weight: 600;
+  text-decoration: none; border: 1px solid var(--tsw-blue); border-radius: 8px; padding: 4px 10px; background: #fff;
+}
+
+.tsw-more {
+  align-self: flex-start; margin-top: 6px; border: 1px solid var(--tsw-red); background: #fff; color: var(--tsw-red);
+  border-radius: 8px; padding: 4px 12px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.tsw-more:disabled { opacity: .5; cursor: default; }
+.tsw-scroll { scrollbar-width: thin; scrollbar-color: #c9d0dc transparent; }
+
+.tsw-quick { padding: 6px 12px 0; display: flex; gap: 6px; }
+.tsw-deals {
+  border: 0; background: var(--tsw-red); color: #fff; border-radius: 14px; padding: 5px 12px;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.tsw-deals:disabled { opacity: .5; cursor: default; }
+
+.tsw-form { display: flex; gap: 6px; padding: 10px 12px 12px; }
+.tsw-form input {
+  flex: 1; min-width: 0; border: 1px solid var(--tsw-line); border-radius: 10px;
+  padding: 9px 12px; font-size: 14px; outline: none; background: #fff;
+}
+.tsw-form input:focus { border-color: var(--tsw-blue); }
+.tsw-form button {
+  background: var(--tsw-red); color: #fff; border: 0; border-radius: 10px; padding: 0 14px;
+  font-weight: 700; font-size: 13px; cursor: pointer;
+}
+.tsw-form button:disabled { opacity: .5; cursor: default; }
+
+/* --- бегущая строка под шапкой --- */
+.tsw-ticker { background: #fff; border-bottom: 1px solid var(--tsw-line); padding: 6px 0; }
+.tsw-ticker-label {
+  padding: 0 12px 4px; display: flex; gap: 6px; align-items: baseline;
+  font-size: 11px; font-weight: 700; color: var(--tsw-red);
+}
+.tsw-ticker-label small { color: var(--tsw-muted); font-weight: 400; }
+.tsw-ticker-window {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+}
+.tsw-ticker-track { display: flex; width: max-content; animation: tsw-marquee linear infinite; }
+.tsw-ticker-window:hover .tsw-ticker-track { animation-play-state: paused; }
+@keyframes tsw-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.tsw-tick {
+  flex: 0 0 auto; margin-right: 8px; display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--tsw-line); border-radius: 10px; padding: 3px 8px 3px 3px;
+  background: #fff; color: var(--tsw-text); text-decoration: none;
+}
+.tsw-tick:hover { border-color: var(--tsw-blue); }
+.tsw-tick img, .tsw-tick-noimg {
+  width: 34px; height: 34px; object-fit: contain; border-radius: 6px; background: #fafbfc;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.tsw-tick-text { display: flex; flex-direction: column; line-height: 1.15; }
+.tsw-tick-price { font-weight: 700; color: var(--tsw-blue); font-size: 12px; }
+.tsw-tick-old { font-size: 10px; color: var(--tsw-muted); text-decoration: line-through; }
+.tsw-tick-off { background: var(--tsw-red); color: #fff; font-size: 10px; font-weight: 700; border-radius: 5px; padding: 0 4px; }
+/* кто отключил анимации в системе — лента не едет, листается вручную */
+@media (prefers-reduced-motion: reduce) {
+  .tsw-ticker-track { animation: none; }
+  .tsw-ticker-window { overflow-x: auto; }
+}
+
+/* «🔥 დარჩა 2 ზომა» — реальный дефицит размеров (scarcity_service) */
+.tsw-scarce {
+  position: absolute; left: 6px; bottom: 6px; background: #fff3e0; color: #b45309;
+  border: 1px solid #f5c58a; font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px;
+}
+
+
+/* 26.10 (шаг 4): строка понятых условий над карточками */
+.tsw-conditions {
+  margin: 6px 0 2px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #1a4b8c;
+  background: #eaf1fb;
+  border-radius: 10px;
+  align-self: flex-start;
+}
+
+/* 26.10 (шаг 4): кнопки «კიდევ ვარიანტები» / «ახალი ძებნა» под карточками */
+.tsw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tsw-action {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #1a4b8c;
+  background: #fff;
+  border: 1px solid #1a4b8c;
+  border-radius: 16px;
+  cursor: pointer;
+}
+.tsw-action:hover:not(:disabled) {
+  background: #1a4b8c;
+  color: #fff;
+}
+.tsw-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 26.10: ссылка в пузыре клиента — белая (раньше синяя на синем фоне — невидимая) */
+.tsw-msg.user .tsw-bubble a { color: #fff; text-decoration: underline; word-break: break-all; }

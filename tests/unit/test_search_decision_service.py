@@ -84,8 +84,11 @@ def test_decision_fallback_similar_when_model_not_found_but_similar_items_exist(
     result = apply_search_decision(context, request)
 
     assert result.result_mode == "fallback_similar"
-    assert result.needs_clarification is True
-    assert result.clarification_reason == "exact_model_not_found"
+    assert result.needs_clarification is False
+    assert result.clarification_reason is None
+    assert result.retrieval_mode == "keyword"
+    assert result.alternative_reason is None
+    assert result.fallback_level is None
 
 
 def test_decision_exact_model_match():
@@ -113,6 +116,39 @@ def test_decision_exact_model_match():
     assert result.clarification_reason is None
 
 
+def test_apply_search_decision_does_not_mutate_original_context():
+    context = SearchContext(
+        query="nike air max",
+        normalized_query="air max",
+        model_hint="air max",
+        items=[make_product(name="Nike Air Max")],
+        total_count=1,
+        limit=5,
+        offset=0,
+    )
+
+    request = SearchRequest(
+        raw_query="nike air max",
+        size=None,
+        limit=5,
+        offset=0,
+    )
+
+    result = apply_search_decision(context, request)
+
+    assert result is not context
+
+    assert context.result_mode is None
+    assert context.needs_clarification is False
+    assert context.clarification_reason is None
+    assert context.retrieval_mode is None
+
+    assert result.result_mode == "need_size"
+    assert result.needs_clarification is True
+    assert result.clarification_reason == "missing_size"
+    assert result.retrieval_mode == "keyword"
+
+
 def test_exact_model_not_found_sets_fallback_similar_mode():
     context = SearchContext(
         query="nike air unknown",
@@ -136,6 +172,9 @@ def test_exact_model_not_found_sets_fallback_similar_mode():
 
     result = apply_search_decision(context, request)
 
-    assert result.needs_clarification is True
-    assert result.clarification_reason == "exact_model_not_found"
     assert result.result_mode == "fallback_similar"
+    assert result.needs_clarification is False
+    assert result.clarification_reason is None
+    assert result.retrieval_mode == "keyword"
+    assert result.alternative_reason is None
+    assert result.fallback_level is None

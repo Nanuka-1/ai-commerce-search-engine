@@ -1,5 +1,6 @@
 import logging
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.repositories.search_event_repository import create_search_event
 from app.services.query_parser_service import normalize_search_query
@@ -9,6 +10,8 @@ from app.services.metrics_service import (
     chat_requests_total,
     search_success_total,
     search_zero_results_total,
+    search_strategy_total,
+    search_fallback_level_total,
 )
 
 
@@ -44,18 +47,19 @@ def log_search_event(
     search_strategy = getattr(search_context, "search_strategy", None)
     matched_by = getattr(search_context, "matched_by", None)
 
+    fallback_level = getattr(search_context, "fallback_level", None)
+
     chat_requests_total.inc()
 
-    if success:
-        search_success_total.inc()
-    else:
-        search_zero_results_total.inc()
+    if search_strategy:
+        search_strategy_total.labels(
+            strategy=search_strategy,
+        ).inc()
 
-    if ai_meta.get("ai_used"):
-        ai_used_total.inc()
-
-    if ai_meta.get("ai_fallback_used"):
-        ai_fallback_total.inc()
+    if fallback_level:
+        search_fallback_level_total.labels(
+            fallback_level=fallback_level,
+        ).inc()
 
     if success:
         search_success_total.inc()
@@ -79,21 +83,35 @@ def log_search_event(
         },
     )
 
-    return create_search_event(
-        db=db,
-        user_id=user_id,
-        query=query,
-        normalized_query=normalized_query,
-        locale=locale,
-        intent=intent,
-        search_strategy=search_strategy,
-        matched_by=matched_by,
-        results_count=results_count,
-        top_sku=top_sku,
-        success=success,
-        ai_used=ai_meta.get("ai_used", False),
-        ai_mode=ai_meta.get("ai_mode"),
-        ai_fallback_used=ai_meta.get("ai_fallback_used", False),
-        ai_response_time_ms=ai_meta.get("ai_response_time_ms"),
-        ai_error=ai_meta.get("ai_error"),
-    )
+    try:
+        return create_search_event(
+            db=db,
+            user_id=user_id,
+            query=query,
+            normalized_query=normalized_query,
+            locale=locale,
+            intent=intent,
+            search_strategy=search_strategy,
+            matched_by=matched_by,
+            results_count=results_count,
+            top_sku=top_sku,
+            success=success,
+            ai_used=ai_meta.get("ai_used", False),
+            ai_mode=ai_meta.get("ai_mode"),
+            ai_fallback_used=ai_meta.get("ai_fallback_used", False),
+            ai_response_time_ms=ai_meta.get("ai_response_time_ms"),
+            ai_error=ai_meta.get("ai_error"),
+        )
+    except SQLAlchemyError as error:
+        logger.warning(
+            "Search event write failed",
+            extra={
+                "user_id": user_id,
+                "intent": intent,
+                "results_count": results_count,
+                "search_strategy": search_strategy,
+                "matched_by": matched_by,
+                "error": str(error),
+            },
+        )
+        return None

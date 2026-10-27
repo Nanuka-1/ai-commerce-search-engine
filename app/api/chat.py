@@ -18,4 +18,5 @@ def chat_message(request: ChatMessageRequest, db: Session = Depends(get_db)):
         request.locale,
         request.limit,
         request.offset,
+        action=request.action,      # 26.10: кнопка виджета «more» / «new_search» (None — обычное сообщение)
     )

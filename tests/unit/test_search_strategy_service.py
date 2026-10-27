@@ -47,3 +47,26 @@ def test_choose_exact_sku_has_highest_priority():
     )
 
     assert strategy.value == "exact_sku"
+
+def test_model_search_has_priority_over_brand_size():
+    strategy = choose_search_strategy(
+        raw_query="nike air max 39",
+        brand="nike",
+        size="39",
+        model_hint="air max",
+        is_sku=False,
+    )
+
+    assert strategy.value == "model_search"
+
+
+def test_sku_has_priority_over_model_search():
+    strategy = choose_search_strategy(
+        raw_query="NK-123",
+        brand="nike",
+        size="39",
+        model_hint="air max",
+        is_sku=True,
+    )
+
+    assert strategy.value == "exact_sku"

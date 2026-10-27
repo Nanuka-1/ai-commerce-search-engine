@@ -28,6 +28,10 @@ class SearchContext(BaseModel):
 
     search_strategy: str | None = None
 
+    retrieval_mode: str | None = None
+    fallback_level: str | None = None
+    alternative_reason: str | None = None
+
     items: list[Any] = Field(default_factory=list)
     total_count: int = 0
 

@@ -2,12 +2,45 @@ from app.db.models import SearchTask
 
 from app.schemas.task_transition import TaskTransition
 
+from app.services.intent_router import (
+    extract_category_from_query,
+    extract_color_from_query,
+    extract_size_from_query,
+)
 from app.services.search_constraints_service import (
     extract_constraints_from_message,
 )
 from app.services.query_parser_service import (
+    extract_brand_from_query,
     extract_model_hint_from_query,
 )
+
+# 09.10: слова-«связки», которые не меняют смысл уточнения ("ზომა 43", "მინდა შავი", "size 43 please").
+REFINEMENT_FILLER_WORDS = {
+    "მინდა", "მაქვს", "გაქვთ", "და", "ან", "თუ", "შეიძლება", "კიდევ", "სხვა",
+    "ზომა", "ზომის", "ზომაში", "ზომით", "ფერი", "ფერის", "ფერში",
+    "size", "in", "a", "the", "for", "please", "color", "colour", "other", "another", "also",
+}
+
+
+def _is_refinement_token(token: str) -> bool:
+    """Слово, которое УТОЧНЯЕТ старый поиск: размер, цвет, пол, бренд, модель или связка."""
+    token = token.strip(".,!?;:()\"'")
+    if not token or token in REFINEMENT_FILLER_WORDS:
+        return True
+    return bool(
+        extract_size_from_query(token)
+        or extract_color_from_query(token)
+        or extract_category_from_query(token)
+        or extract_brand_from_query(token)
+        or extract_model_hint_from_query(token)
+    )
+
+
+def has_own_product_words(message: str) -> bool:
+    """09.10 (утечка контекста): в сообщении есть СВОИ слова о товаре ("ზამთრის ქურთუკი", артикул,
+    латиница "rogor xar") — значит это новый запрос, а не уточнение старого."""
+    return any(not _is_refinement_token(token) for token in message.split())
 
 
 def is_new_model_search(
@@ -100,6 +133,11 @@ def classify_task_transition(task: SearchTask | None, message: str) -> str:
         message_size=message_size,
         new_tokens=new_tokens,
     ):
+        return TaskTransition.RESTART_TASK.value
+
+    # 09.10: "nkie pegasos 42" → "ქალის ზამთრის ქურთუკი M" склеивалось в "pegasus + M" (женские шорты).
+    # Новые слова, которые не являются уточнением (размер/цвет/пол/бренд/связка), — это новый запрос.
+    if new_tokens and has_own_product_words(normalized_message):
         return TaskTransition.RESTART_TASK.value
 
     if is_model_size_refinement(

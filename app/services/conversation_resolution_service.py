@@ -1,19 +1,34 @@
+import re
+
 from app.db.models import SearchTask
 
 from app.schemas.task_transition import TaskTransition
 
+from app.services.intent_router import extract_size_from_query
 from app.services.task_transition_service import (
     classify_task_transition,
 )
-from app.services.search_constraints_service import (
-    extract_constraints_from_message,
-)
-
-from app.services.search_query_builder_service import (
-    merge_constraints,
-    build_query_from_constraints,
-)
 from app.schemas.conversation_resolution import ConversationResolution
+
+
+def refine_task_query(task_query: str, message: str) -> str:
+    """09.10: уточнение дописывается к ТЕКСТУ старого запроса (раньше запрос пересобирался только из
+    распознанных полей, и слова вроде "სარბენი ფეხსაცმელი" терялись: оставалось "43").
+    Новый размер заменяет старый."""
+    base = task_query
+    new_size = extract_size_from_query(message)
+    old_size = extract_size_from_query(task_query)
+    if new_size and old_size:
+        base = re.sub(rf"(?<!\S){re.escape(old_size)}(?!\S)", " ", base, flags=re.IGNORECASE)
+    # 15.10: дописываем только НОВЫЕ слова — повтор того же сообщения не удваивает запрос
+    # («ქალის ჯემპრი S» + «ქალის ჯემპრი S» было → «ქალის ჯემპრი ქალის ჯემპრი S»: другие карточки и промах кэша)
+    seen = {word.lower() for word in base.split()}
+    added = []
+    for word in message.split():
+        if word.lower() not in seen:
+            seen.add(word.lower())
+            added.append(word)
+    return " ".join(f"{base} {' '.join(added)}".split())
 
 def resolve_restart_task(message: str) -> ConversationResolution:
     return ConversationResolution(
@@ -61,15 +76,7 @@ def resolve_message_from_active_task(
 
     if transition_type == TaskTransition.CONTINUE_TASK.value:
         if task.query:
-            current_constraints = extract_constraints_from_message(task.query)
-            incoming_constraints = extract_constraints_from_message(message)
-
-            merged_constraints = merge_constraints(
-                current=current_constraints,
-                incoming=incoming_constraints,
-            )
-
-            merged_query = build_query_from_constraints(merged_constraints)
+            merged_query = refine_task_query(task.query, message)
 
             if merged_query:
                 return ConversationResolution(

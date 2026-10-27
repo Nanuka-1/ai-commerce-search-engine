@@ -29,3 +29,15 @@ search_zero_results_total = Counter(
     "search_zero_results_total",
     "Total zero-result searches",
 )
+
+search_strategy_total = Counter(
+    "search_strategy_total",
+    "Search strategy usage",
+    ["strategy"],
+)
+
+search_fallback_level_total = Counter(
+    "search_fallback_level_total",
+    "Search fallback level usage",
+    ["fallback_level"],
+)

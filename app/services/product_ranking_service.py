@@ -4,8 +4,15 @@ import re
 USAGE_SYNONYMS = {
     "running": ["running", "sport", "training", "სპორტული"],
     "casual": ["casual", "lifestyle", "daily", "ყოველდღიური"],
+    "basketball": ["basketball", "კალათბურთ"],
 }
 
+# 13.10: модель отдельным СЛОВОМ («Samba OG») важнее, чем кусок другого слова («SAMBAE» — Samba на платформе)
+MODEL_WHOLE_WORD_BONUS = 25
+
+
+def tokenize_query(query: str) -> list[str]:
+    return query.split()
 
 def parse_sku_parts(sku: str | None) -> tuple[str, str | None]:
     if not sku:
@@ -42,6 +49,13 @@ def build_search_text(product) -> str:
     return " ".join(parts).strip().lower()
 
 
+def has_whole_word(text: str, phrase: str | None) -> bool:
+    """«samba» в «adidas samba og» — да; в «adidas sambae w» — нет (буква сразу после)."""
+    if not phrase:
+        return False
+    return re.search(rf"(?<![a-z0-9]){re.escape(phrase.lower())}(?![a-z0-9])", text) is not None
+
+
 def score_product(
     product,
     tokens: list[str],
@@ -51,6 +65,7 @@ def score_product(
     requested_size: str | None = None,
     requested_category: str | None = None,
     requested_style_group: str | None = None,
+    requested_color: str | None = None,  # <-- новое
 ) -> int:
     name_text = (product.name or "").lower()
     brand_text = (getattr(product, "brand", "") or "").lower()
@@ -67,6 +82,9 @@ def score_product(
         score += 35
 
     if requested_style_group and product.style_group == requested_style_group:
+        score += 30
+
+    if requested_color and getattr(product, "color", None) and requested_color.lower() == product.color.lower():
         score += 30
 
     for token in tokens:
@@ -109,6 +127,8 @@ def score_product(
 
     if model_hint and model_hint in search_text:
         score += 40
+        if has_whole_word(name_text, model_hint):
+            score += MODEL_WHOLE_WORD_BONUS
 
     score += max(0, 20 - len(search_text) // 5)
 
@@ -124,6 +144,7 @@ def rank_products(
     requested_size: str | None = None,
     requested_category: str | None = None,
     requested_style_group: str | None = None,
+    requested_color: str | None = None,  # <-- новое
 ):
     return sorted(
         products,
@@ -136,6 +157,7 @@ def rank_products(
             requested_size=requested_size,
             requested_category=requested_category,
             requested_style_group=requested_style_group,
+            requested_color=requested_color,
         ),
         reverse=True,
     )

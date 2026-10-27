@@ -24,3 +24,4 @@ test_store.db
 # OS
 .DS_Store
 Thumbs.db
+ingestion/*.csv

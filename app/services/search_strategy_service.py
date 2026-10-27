@@ -25,9 +25,6 @@ def choose_search_strategy(
     if brand and size:
         return SearchStrategy.BRAND_SIZE
 
-    if brand:
-        return SearchStrategy.BROAD_SEARCH
-
     return SearchStrategy.BROAD_SEARCH
 
 

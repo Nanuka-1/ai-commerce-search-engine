@@ -1,0 +1,15 @@
+{
+  "mode": "fresh_drops",
+  "limit": 8,
+  "min_discount_percent": 20,
+  "min_drop_percent": 10,
+  "manual_pages": [],
+  "title": {
+    "ka": "📉 ახალი ფასდაკლებები",
+    "en": "📉 New price drops"
+  },
+  "sale_url": {
+    "ka": "https://topsport.ge/ka/products/sale",
+    "en": "https://topsport.ge/en/products/sale"
+  }
+}

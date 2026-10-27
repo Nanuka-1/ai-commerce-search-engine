@@ -3,6 +3,7 @@ from app.schemas.search_request import SearchRequest
 from app.schemas.task_step import TaskStep
 from app.schemas.search_result_mode import SearchResultMode
 
+
 def get_item_value(item, field: str):
     if isinstance(item, dict):
         return item.get(field)
@@ -11,8 +12,12 @@ def get_item_value(item, field: str):
 
 
 def apply_search_decision(context: SearchContext, request: SearchRequest) -> SearchContext:
+    context = context.model_copy(deep=True)
+
     model_hint = getattr(context, "model_hint", None)
 
+    if context.retrieval_mode is None:
+        context.retrieval_mode = "keyword"
     has_model_match = False
     if model_hint:
         has_model_match = any(
@@ -42,8 +47,11 @@ def apply_search_decision(context: SearchContext, request: SearchRequest) -> Sea
     # 4. Model + size exist, but exact model was not found
     elif model_hint and not has_model_match and context.total_count > 0:
         context.result_mode = SearchResultMode.FALLBACK_SIMILAR.value
-        context.needs_clarification = True
-        context.clarification_reason = "exact_model_not_found"
+
+        context.needs_clarification = False
+        context.clarification_reason = None
+
+
 
     # 5. Broad query
     elif context.total_count > 10 and not request.size and not model_hint:

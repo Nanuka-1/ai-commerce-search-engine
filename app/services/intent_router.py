@@ -1,5 +1,7 @@
 import re
 
+from app.services.product_enrichment_service import COLOR_KEYWORDS, VERSIONED_MODELS
+
 
 PRICE_PREFIXES = (
     "price",
@@ -17,6 +19,15 @@ GREETING_WORDS = {
     "good evening",
     "გამარჯობა",
     "გაუმარჯოს",
+    # 09.10: живой тест — "მოგესალმებით" ушло в поиск и показало случайные товары
+    "მოგესალმებით",
+    "გამარჯობათ",
+    "სალამი",
+    "ჰაი",
+    "დილა მშვიდობისა",
+    "საღამო მშვიდობისა",
+    "hello there",
+    "good day",
 }
 
 CATEGORY_KEYWORDS = {
@@ -25,12 +36,22 @@ CATEGORY_KEYWORDS = {
     "man": "men",
     "მამაკაცი": "men",
     "მამაკაცის": "men",
+    # 20.10 (экзамен): формы, которые пишут клиенты — «კაცის სარბენი 42» поиск не понимал как мужское
+    "მამაკაცისთვის": "men",
+    "კაცი": "men",
+    "კაცის": "men",
+    "კაცისთვის": "men",
+
 
     "women": "women",
     "woman": "women",
     "female": "women",
     "ქალი": "women",
     "ქალის": "women",
+    # 20.10: «…36 ზომა ქალისთვის» → среди 5 попалась детская модель
+    "ქალისთვის": "women",
+    "ქალებისთვის": "women",
+
 
     "kids": "kids",
     "kid": "kids",
@@ -38,12 +59,28 @@ CATEGORY_KEYWORDS = {
     "children": "kids",
     "ბავშვი": "kids",
     "ბავშვის": "kids",
+    # 20.10: «ბიჭის / გოგოს» (для мальчика / девочки) — в каталоге только «ბავშვის» (п.119)
+    "ბავშვისთვის": "kids",
+    "ბავშვებისთვის": "kids",
+    "ბიჭი": "kids",
+    "ბიჭის": "kids",
+    "ბიჭისთვის": "kids",
+    "გოგო": "kids",
+    "გოგოს": "kids",
+    "გოგოსთვის": "kids",
+    "boy": "kids",
+    "boys": "kids",
+    "girl": "kids",
+    "girls": "kids",
 }
 
+# Корни грузинских названий категорий, как их пишет скрапер в category_slug
+# (например "მამაკაცი, მამაკაცის ფეხსაცმელი"). Проверено SQL 30.09:
+# მამაკაც=5810, ქალ=4711, ბავშვ=1112 активных товаров.
 CATEGORY_DB_SLUGS = {
-    "men": "mamakatsis",
-    "women": "qalis-fekhsatsmeli",
-    "kids": "bavshvis-fekhsatsmeli",
+    "men": "მამაკაც",
+    "women": "ქალ",
+    "kids": "ბავშვ",
 }
 
 
@@ -59,13 +96,24 @@ def normalize_text(message: str) -> str:
     return re.sub(r"\s+", " ", message.strip().lower())
 
 
+GREETING_EDGE = "!.?,;:)( 👋🙂😊"
+
+
 def is_greeting(message: str) -> bool:
-    normalized = normalize_text(message)
+    """22.10: приветствие — только если КРОМЕ него ничего нет («გამარჯობა!», «hello there»).
+    «გამარჯობა + вопрос» — не приветствие: вопрос отвечаем (strip_greeting)."""
+    normalized = normalize_text(message).strip(GREETING_EDGE)
+    return normalized in GREETING_WORDS
 
-    if normalized in GREETING_WORDS:
-        return True
 
-    return any(normalized.startswith(word + " ") for word in GREETING_WORDS)
+def strip_greeting(message: str) -> str:
+    """«გამარჯობა, ქალის ქურთუკი M» → «ქალის ქურთუკი M»; без приветствия — как есть; только приветствие → ""."""
+    text = (message or "").strip()
+    lowered = text.lower()
+    for word in sorted(GREETING_WORDS, key=len, reverse=True):   # длинные первыми: «გამარჯობათ» раньше «გამარჯობა»
+        if lowered.startswith(word) and (len(lowered) == len(word) or not lowered[len(word)].isalnum()):
+            return text[len(word):].strip(GREETING_EDGE)
+    return text
 
 
 def is_price_check(message: str) -> bool:
@@ -105,9 +153,12 @@ def extract_price_query(message: str) -> str | None:
     return None
 
 
+MIN_SKU_LENGTH = 6   # 09.10: "33"/"42" считались артикулом → "SKU не найден"; реальные: 31241503, CW2288-111
+
+
 def is_sku(message: str) -> bool:
     normalized = message.strip()
-    if not normalized:
+    if len(normalized) < MIN_SKU_LENGTH:
         return False
 
     return bool(SKU_PATTERN.match(normalized))
@@ -128,21 +179,43 @@ def detect_intent(message: str) -> str:
 
     return "product_search"
 
-def extract_size_from_query(query: str):
-    match = re.search(r"\b\d+(?:\.\d+)?\b", query)
+MIN_SHOE_SIZE = 20
+MAX_SHOE_SIZE = 55
 
-    if match:
-        size = match.group(0)
+LETTER_SIZE_CANONICAL = {
+    "XXS": "XXS", "2XS": "XXS",
+    "XS": "XS",
+    "S": "S",
+    "M": "M",
+    "L": "L",
+    "XL": "XL",
+    "XXL": "XXL", "2XL": "XXL",
+    "XXXL": "XXXL", "3XL": "XXXL",
+}
 
-        try:
-            size_int = int(float(size))
 
-            # Allowable shoe size
-            if 20 <= size_int <= 55:
-                return str(size_int)
+def _format_shoe_size(value: float) -> str:
+    return str(int(value)) if value.is_integer() else str(value)
 
-        except ValueError:
-            pass
+
+def extract_size_from_query(query: str) -> str | None:
+    numeric_size = None
+    for match in re.finditer(r"\b\d+(?:[.,]\d+)?\b", query):
+        previous_word = re.search(r"([A-Za-z]+)\s*$", query[:match.start()])
+        if previous_word and match.group(0) in VERSIONED_MODELS.get(previous_word.group(1).lower(), ()):
+            continue  # "pegasus 41", "ultraboost 22" — версия из каталога; "pegasus 42" — размер
+
+        value = float(match.group(0).replace(",", "."))
+        if MIN_SHOE_SIZE <= value <= MAX_SHOE_SIZE:
+            numeric_size = _format_shoe_size(value)
+
+    if numeric_size is not None:
+        return numeric_size
+
+    for token in query.split():
+        cleaned = token.strip(".,!?;:()\"'").upper()
+        if cleaned in LETTER_SIZE_CANONICAL:
+            return LETTER_SIZE_CANONICAL[cleaned]
 
     return None
 
@@ -155,24 +228,43 @@ def extract_category_from_query(message: str) -> str | None:
 
     return None
 
+# Грузинские названия цветов → канон базы (тот же, что в COLOR_KEYWORDS скрапера).
+# Проверить формулировки носителем языка.
+GEORGIAN_COLOR_KEYWORDS = {
+    "შავი": "black",
+    "თეთრი": "white",
+    "წითელი": "red",
+    "მუქი ლურჯი": "navy",
+    "ლურჯი": "blue",
+    "ცისფერი": "blue",
+    "ნაცრისფერი": "gray",
+    "რუხი": "gray",
+    "მწვანე": "green",
+    "ვარდისფერი": "pink",
+    "ზეთისხილისფერი": "olive",
+    "ვერცხლისფერი": "silver",
+    "ოქროსფერი": "gold",
+    "ყავისფერი": "coffee",
+    "ნარინჯისფერი": "orange",
+    "იისფერი": "purple",
+    "პიტნისფერი": "mint",
+    "ფერადი": "multicolor",
+}
+
+# Один словарь для поиска: английские цвета берутся из скрапера (COLOR_KEYWORDS),
+# чтобы поиск и данные не расходились. Длинные ключи проверяются первыми
+# ("მუქი ლურჯი" раньше "ლურჯი").
+QUERY_COLOR_KEYWORDS = sorted(
+    {**COLOR_KEYWORDS, **GEORGIAN_COLOR_KEYWORDS}.items(),
+    key=lambda item: len(item[0]),
+    reverse=True,
+)
+
+
 def extract_color_from_query(query: str) -> str | None:
     normalized_query = query.lower()
 
-    color_keywords = {
-        "white": "white",
-        "black": "black",
-        "red": "red",
-        "blue": "blue",
-        "green": "green",
-        "grey": "grey",
-        "gray": "grey",
-        "თეთრი": "white",
-        "შავი": "black",
-        "წითელი": "red",
-        "ლურჯი": "blue",
-    }
-
-    for keyword, color in color_keywords.items():
+    for keyword, color in QUERY_COLOR_KEYWORDS:
         if keyword in normalized_query:
             return color
 

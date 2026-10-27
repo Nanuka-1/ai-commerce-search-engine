@@ -1,0 +1,12 @@
+/* Демо-страница: «сайт магазина» на фоне, виджет чата поверх (справа внизу).
+   Фон — скриншот главной topsport.ge: положить файл в frontend/public/site-bg.png */
+html, body, #root { margin: 0; height: 100%; }
+body {
+  font-family: "Segoe UI", "Noto Sans Georgian", "BPG Arial", Arial, sans-serif;
+  background: #eef1f6 url('/site-bg.png') top center / cover no-repeat;
+}
+.demo-note {
+  position: fixed; left: 16px; top: 16px; max-width: 360px;
+  background: rgba(255, 255, 255, .92); border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; color: #1d2433; box-shadow: 0 4px 16px rgba(0, 0, 0, .08);
+}
