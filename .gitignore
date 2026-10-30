@@ -25,3 +25,5 @@ test_store.db
 .DS_Store
 Thumbs.db
 ingestion/*.csv
+
+photo_eval/

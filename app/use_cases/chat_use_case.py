@@ -56,6 +56,7 @@ from app.services.product_service import (
     search_products,
 )
 from app.services.product_link_service import find_product_link
+from app.services.photo_search_service import EXACT as PHOTO_EXACT, SIMILAR as PHOTO_SIMILAR, check_photo, search_by_photo
 from app.repositories.product_repository import size_variants
 from app.services.search_request_builder import build_search_request
 from app.services.scarcity_service import scarce_sizes_by_page
@@ -561,6 +562,51 @@ class ChatUseCase:
         if patch.child:
             response["message"] = f"{translate('kids_unisex_note', locale)} {response.get('message') or ''}".strip()
         return response
+
+    # --- 29.10 (поиск по фото, шаг 3): фото клиента → похожие модели + честный вердикт ---
+
+    PHOTO_CARDS = 5
+
+    def process_photo(self, db: Session, user_id: str, data: bytes, mime: str, locale: str = "ka"):
+        """Тот же формат ответа, что у сообщения (+ meta.timings)."""
+        timings, token, started = request_timings.start()
+        response = None
+        try:
+            response = self._process_photo(db, user_id, data, mime, locale or "ka")
+        finally:
+            response = request_timings.finish(response, timings, token, started)
+        return response
+
+    def _process_photo(self, db, user_id, data, mime, locale):
+        problem = check_photo(data, mime)
+        if problem:
+            return {"type": "clarify", "message": translate(problem, locale), "data": {"user_id": user_id},
+                    "meta": {"photo_verdict": problem, "ai_used": False, "ai_mode": "template"}}
+        with request_timings.stage("photo"):
+            result = search_by_photo(db, data, mime)
+        meta = {"photo_verdict": result.verdict, "photo_understanding": result.understanding,
+                "photo_top": [round(similarity, 3) for _, similarity in result.pages[:self.PHOTO_CARDS]],
+                "photo_errors": result.errors, "ai_used": False, "ai_mode": "template"}
+        cards = []
+        if result.verdict in (PHOTO_EXACT, PHOTO_SIMILAR):
+            with request_timings.stage("photo.cards"):
+                for page, _ in result.pages[:self.PHOTO_CARDS]:
+                    cards.extend(get_model_cards_by_page(db, page)[:1])
+        if not cards:
+            # junk / not_found / unavailable (или модели сняты с продажи) — честно, без карточек
+            verdict = result.verdict if result.verdict not in (PHOTO_EXACT, PHOTO_SIMILAR) else "not_found"
+            return {"type": "photo_search", "message": translate(f"photo_{verdict}", locale),
+                    "data": {"user_id": user_id, "results": {"items": []}}, "meta": meta}
+        if result.verdict == PHOTO_EXACT:
+            # карточка условий = эта модель: дальше «а 38?» — о ней (как у ссылки на товар)
+            state, _ = merge(None, patch_from_rules(cards[0].get("name") or ""))
+            self._save_state(user_id, state)
+            meta["dialog_state"] = describe_state(state)
+        self._remember_shown(user_id, [_page(card) for card in cards], append=False)
+        return {"type": "photo_search", "message": translate(f"photo_{result.verdict}", locale),
+                "data": {"user_id": user_id,
+                         "results": {"query": "", "items": cards, "total": len(cards), "has_more": False}},
+                "meta": meta}
 
     def _handle_product_link(self, db, user_id, link, locale):
         """Карточка модели по ссылке + где проверить наличие в филиале. Размер: из текста клиента

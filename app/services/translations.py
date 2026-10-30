@@ -68,6 +68,14 @@ TRANSLATIONS = {
         "product_link_size_yes": "ზომა {size} ✅ არის.",
         "product_link_size_no": "ზომა {size} ამ მოდელზე ახლა არ ჩანს — სხვა ზომები ბარათზეა.",
         "product_link_not_found": "ეს მოდელი ჩვენს კატალოგში ვერ ვიპოვე — შეიძლება უკვე გაყიდულია. მომწერეთ, რას ეძებთ (მაგ.: „ქალის ჯემპრი M“) და მსგავს ვარიანტებს გაჩვენებთ.",
+
+        "photo_exact": "აი ეს მოდელი 👇 და კიდევ რამდენიმე მსგავსი.",
+        "photo_similar": "ზუსტად ეს მოდელი ვერ ვიპოვე — აი ყველაზე მსგავსი 👇",
+        "photo_not_found": "ფოტოს მსგავსი მოდელი ჩვენთან ვერ ვიპოვე. მომწერეთ, რას ეძებთ (მაგ.: „ქალის თეთრი ბოტასი 38“).",
+        "photo_junk": "ფოტოზე სპორტული პროდუქტი ვერ გავარჩიე 🤔 გამოგზავნეთ ფეხსაცმლის ან ტანსაცმლის ფოტო, ან დამიწერეთ.",
+        "photo_unavailable": "ახლა ფოტოს ვერ ვამოწმებ — სცადეთ ცოტა ხანში ან დამიწერეთ, რას ეძებთ.",
+        "photo_bad_format": "ეს ფორმატი ვერ წავიკითხე — გამოგზავნეთ JPG, PNG ან WEBP ფოტო.",
+        "photo_too_big": "ფოტო ძალიან დიდია (მაქს. 5 MB) — სცადეთ უფრო პატარა.",
     },
     "en": {
         "greeting": "Hello! How can I help you today?",
@@ -134,6 +142,14 @@ TRANSLATIONS = {
         "product_link_size_yes": "Size {size} ✅ is available.",
         "product_link_size_no": "Size {size} isn't available for this model right now — other sizes are on the card.",
         "product_link_not_found": "I couldn't find this model in our catalog — it may be sold out. Tell me what you're looking for (e.g. \"women's jumper M\") and I'll show similar options.",
+
+        "photo_exact": "Here's this model 👇 plus a few similar ones.",
+        "photo_similar": "I couldn't find this exact model — here are the most similar ones 👇",
+        "photo_not_found": "I couldn't find anything similar in our catalog. Tell me what you're looking for (e.g. \"women's white sneakers 38\").",
+        "photo_junk": "I couldn't see a sports product in this photo 🤔 Send a photo of shoes or clothing, or just type what you need.",
+        "photo_unavailable": "I can't check photos right now — please try again a bit later or type what you're looking for.",
+        "photo_bad_format": "I can't read this format — please send a JPG, PNG or WEBP photo.",
+        "photo_too_big": "The photo is too large (max 5 MB) — please try a smaller one.",
     },
 }
 

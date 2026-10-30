@@ -30,17 +30,23 @@ def is_daily_quota_error(error: Exception) -> bool:
     return "429" in str(error) and "PerDay" in str(error)
 
 _client = None
+# 29.10: живьём — «Cannot send a request, as the client has been closed». Первый запрос после запуска сервера —
+# фото: два потока (описание фото + метка фото) одновременно создали ДВА клиента; лишний, без ссылок,
+# сборщик мусора закрыл прямо во время запроса. Замок: клиент создаётся ровно один раз.
+_client_lock = threading.Lock()
 
 
 def _get_client():
     global _client
     if _client is None:
-        from google import genai  # импорт здесь: тесты и код без ключа не требуют библиотеку
-        load_dotenv()
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise RuntimeError("GEMINI_API_KEY не найден в .env")
-        _client = genai.Client(api_key=api_key)
+        with _client_lock:
+            if _client is None:               # второй поток, дождавшись замка, берёт уже созданный
+                from google import genai  # импорт здесь: тесты и код без ключа не требуют библиотеку
+                load_dotenv()
+                api_key = os.getenv("GEMINI_API_KEY")
+                if not api_key:
+                    raise RuntimeError("GEMINI_API_KEY не найден в .env")
+                _client = genai.Client(api_key=api_key)
     return _client
 
 

@@ -203,3 +203,16 @@
 
 /* 26.10: ссылка в пузыре клиента — белая (раньше синяя на синем фоне — невидимая) */
 .tsw-msg.user .tsw-bubble a { color: #fff; text-decoration: underline; word-break: break-all; }
+
+
+/* 30.10: поиск по фото — кнопка 📷 у поля ввода и превью фото клиента */
+.tsw-photo-btn {
+  background: #fff; border: 1px solid var(--tsw-line); border-radius: 10px;
+  padding: 0 10px; font-size: 18px; cursor: pointer;
+}
+.tsw-photo-btn:hover:not(:disabled) { border-color: var(--tsw-blue); }
+.tsw-photo-btn:disabled { opacity: .5; cursor: default; }
+.tsw-user-photo {
+  max-width: 160px; max-height: 160px; object-fit: cover;
+  border-radius: 12px; border: 2px solid var(--tsw-blue);
+}

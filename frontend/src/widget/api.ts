@@ -27,6 +27,17 @@ export async function sendMessage(message: string, locale: Lang, action?: Action
   return res.json()
 }
 
+// 30.10: фото клиента → похожие модели (сервер: POST /chat/photo, фото не сохраняется)
+export async function sendPhoto(photo: File, locale: Lang): Promise<ChatResponse> {
+  const form = new FormData()
+  form.append('user_id', userId())
+  form.append('locale', locale)
+  form.append('photo', photo)
+  const res = await fetch('/chat/photo', { method: 'POST', body: form })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
 // Кнопка «📉 დღის ფასდაკლებები» и «კიდევ 5»: подборка скидок пачками, без LLM
 export async function getDeals(locale: Lang, offset: number, maxPrice?: number | null, limit = 5): Promise<ChatResponse> {
   const params = new URLSearchParams({ lang: locale, offset: String(offset), limit: String(limit), user_id: userId() })
