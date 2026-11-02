@@ -10,21 +10,35 @@ def make_product(
     product_id,
     name,
     brand="nike",
-    sku="SKU-1",
+    sku=None,
     price=100.0,
     size=None,
     category_slug=None,
     style_group=None,
 ):
+    """Поддельный товар — со ВСЕМИ полями настоящего Product (app/db/models.py).
+    02.11: подделки были без product_url / style_group и с одним sku «SKU-1» у всех → поиск (с октября
+    собирает варианты в карточку модели по странице сайта) склеивал разные товары в одну карточку,
+    а ранжирование падало на style_group. У каждого товара — своя страница и свой sku, как в базе."""
     return SimpleNamespace(
         id=product_id,
         name=name,
         brand=brand,
-        sku=sku,
+        sku=sku or f"SKU-{product_id}",
         price=price,
+        regular_price=None,
         size=size,
         category_slug=category_slug,
+        product_type=None,
         style_group=style_group,
+        sport_type=None,
+        usage_type=None,
+        model_family=None,
+        color=None,
+        product_url=f"https://topsport.ge/ka/product/test-{product_id}",
+        image_url=None,
+        is_active=True,
+        is_new=False,
     )
 
 
