@@ -24,6 +24,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from app.db.models import Product
 from app.db.session import SessionLocal
@@ -60,6 +61,19 @@ UPSERT_SQL = text("""
        SET image_url = EXCLUDED.image_url, model = EXCLUDED.model,
            embedding = EXCLUDED.embedding, updated_at = now()
 """)
+
+
+def save_rows(db, rows: list[dict]) -> None:
+    """Сохранить точки. 02.11: Neon закрыл соединение, пока ждали Gemini («server closed the connection
+    unexpectedly») → 40 готовых точек пропали. Обрыв → откат (SQLAlchemy выбрасывает мёртвое соединение)
+    и ОДИН повтор на новом соединении; второй обрыв — ошибка как раньше."""
+    try:
+        db.execute(UPSERT_SQL, rows)
+        db.commit()
+    except OperationalError:
+        db.rollback()
+        db.execute(UPSERT_SQL, rows)
+        db.commit()
 
 
 class QuotaStop(Exception):
@@ -141,6 +155,7 @@ def main(budget: int = DAILY_BUDGET, first_word: str | None = None) -> None:
         db.commit()
         print(f"Удалено точек снятых моделей: {len(stale)}")
 
+    db.commit()                 # 02.11: отпустить соединение, пока долго ждём Gemini (не держать транзакцию)
     plan = plan_images(cards, saved, IMAGE_EMBEDDING_MODEL)
     pages_total = sum(len(pages) for _, pages in plan)
     print(f"Моделей: {len(cards)}, уже есть точки: {len(cards) - pages_total}, "
@@ -164,8 +179,7 @@ def main(budget: int = DAILY_BUDGET, first_word: str | None = None) -> None:
                     for image, vector in results if vector is not None
                     for page in pages_by_image[image]]
             if rows:
-                db.execute(UPSERT_SQL, rows)
-                db.commit()
+                save_rows(db, rows)
             done += len(chunk)
             minutes = (time.perf_counter() - started) / 60
             print(f"…картинок {done} из {len(plan)} ({minutes:.0f} мин)")
