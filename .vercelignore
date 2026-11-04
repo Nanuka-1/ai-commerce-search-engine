@@ -1,0 +1,12 @@
+# 04.11: что НЕ отправлять на Vercel (бэкенд). Виджет (frontend/) выкладывается отдельно.
+.venv
+frontend
+tests
+photo_eval
+.github
+*.db
+.coverage
+htmlcov
+.pytest_cache
+__pycache__
+ingestion/*.csv
