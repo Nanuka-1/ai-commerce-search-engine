@@ -75,7 +75,7 @@ TRANSLATIONS = {
         "photo_junk": "ფოტოზე სპორტული პროდუქტი ვერ გავარჩიე 🤔 გამოგზავნეთ ფეხსაცმლის ან ტანსაცმლის ფოტო, ან დამიწერეთ.",
         "photo_unavailable": "ახლა ფოტოს ვერ ვამოწმებ — სცადეთ ცოტა ხანში ან დამიწერეთ, რას ეძებთ.",
         "photo_bad_format": "ეს ფორმატი ვერ წავიკითხე — გამოგზავნეთ JPG, PNG ან WEBP ფოტო.",
-        "photo_too_big": "ფოტო ძალიან დიდია (მაქს. 5 MB) — სცადეთ უფრო პატარა.",
+        "photo_too_big": "ფოტო ძალიან დიდია (მაქს. 4 MB) — სცადეთ უფრო პატარა.",
     },
     "en": {
         "greeting": "Hello! How can I help you today?",
@@ -149,7 +149,7 @@ TRANSLATIONS = {
         "photo_junk": "I couldn't see a sports product in this photo 🤔 Send a photo of shoes or clothing, or just type what you need.",
         "photo_unavailable": "I can't check photos right now — please try again a bit later or type what you're looking for.",
         "photo_bad_format": "I can't read this format — please send a JPG, PNG or WEBP photo.",
-        "photo_too_big": "The photo is too large (max 5 MB) — please try a smaller one.",
+        "photo_too_big": "The photo is too large (max 4 MB) — please try a smaller one.",
     },
 }
 

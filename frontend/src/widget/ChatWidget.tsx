@@ -15,14 +15,44 @@ const ACTION_LABELS: Record<Lang, Record<Action, string>> = {
   en: { more: 'More options', new_search: '🔄 New search' },
 }
 
-// 30.10: фото — те же ограничения, что на сервере (photo_search_service): jpg / png / webp, до 5 МБ
+// 30.10: фото — те же ограничения, что на сервере (photo_search_service): jpg / png / webp.
+// 04.11 (Vercel принимает запрос ≤ 4.5 МБ): фото с телефона (3–8 МБ) сначала уменьшаем здесь, в браузере —
+// до 1600 px по длинной стороне, JPEG → обычно 200–800 КБ. Для поиска этого хватает (каталог сравнивается
+// по картинкам в сотни пикселей). Предел 4 МБ — после уменьшения (как на сервере).
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024
+const MAX_PHOTO_SIDE = 1600
+const PHOTO_QUALITY = 0.85
 const PHOTO_TEXT: Record<Lang, { button: string; tooBig: string; badType: string }> = {
-  ka: { button: 'ფოტოს გაგზავნა', tooBig: 'ფოტო ძალიან დიდია (მაქს. 5 MB) — სცადეთ უფრო პატარა.',
+  ka: { button: 'ფოტოს გაგზავნა', tooBig: 'ფოტო ძალიან დიდია (მაქს. 4 MB) — სცადეთ უფრო პატარა.',
         badType: 'გამოგზავნეთ JPG, PNG ან WEBP ფოტო.' },
-  en: { button: 'Send a photo', tooBig: 'The photo is too large (max 5 MB) — please try a smaller one.',
+  en: { button: 'Send a photo', tooBig: 'The photo is too large (max 4 MB) — please try a smaller one.',
         badType: 'Please send a JPG, PNG or WEBP photo.' },
+}
+
+// 04.11: уменьшить фото перед отправкой. Не получилось / стало не меньше — отправляем как есть
+// (сервер всё равно проверит размер). Белый фон — у PNG с прозрачностью в JPEG иначе будет чёрный.
+async function shrinkPhoto(file: File): Promise<File> {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height))
+    const width = Math.round(bitmap.width * scale)
+    const height = Math.round(bitmap.height * scale)
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) return file
+    context.fillStyle = '#fff'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(bitmap, 0, 0, width, height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', PHOTO_QUALITY))
+    if (!blob || blob.size >= file.size) return file
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' })
+  } catch {
+    return file
+  }
 }
 
 // Текст ответа с кликабельными ссылками («не нашли» содержит ссылку на поиск сайта)
@@ -117,14 +147,16 @@ export default function ChatWidget() {
   }
 
   // 30.10: клиент выбрал фото → проверка здесь (чтобы не грузить зря) → сервер ищет похожие модели
-  function onPhotoChosen(event: ChangeEvent<HTMLInputElement>) {
-    const photo = event.target.files?.[0]
+  // 04.11: сначала уменьшаем (shrinkPhoto), предел размера — уже после уменьшения
+  async function onPhotoChosen(event: ChangeEvent<HTMLInputElement>) {
+    const chosen = event.target.files?.[0]
     event.target.value = ''                       // то же фото можно выбрать ещё раз
-    if (!photo || busy) return
-    if (!PHOTO_TYPES.includes(photo.type)) {
+    if (!chosen || busy) return
+    if (!PHOTO_TYPES.includes(chosen.type)) {
       add({ role: 'bot', text: PHOTO_TEXT[lang].badType, kind: 'error' })
       return
     }
+    const photo = await shrinkPhoto(chosen)
     if (photo.size > MAX_PHOTO_BYTES) {
       add({ role: 'bot', text: PHOTO_TEXT[lang].tooBig, kind: 'error' })
       return

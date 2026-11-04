@@ -25,7 +25,7 @@ from app.services.embedding_client import _get_client
 IMAGE_EMBEDDING_MODEL = "gemini-embedding-2"     # то же, что ingestion/build_image_embeddings.py
 IMAGE_EMBEDDING_DIM = 768
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp"}
-MAX_PHOTO_BYTES = 5 * 1024 * 1024
+MAX_PHOTO_BYTES = 4 * 1024 * 1024   # 04.11: Vercel принимает запрос ≤ 4.5 МБ; виджет сам уменьшает фото до ~0.2–0.8 МБ
 
 EXACT_SIMILARITY = 0.83      # «точно эта модель» — только если похожесть высокая…
 EXACT_GAP = 0.02             # …и заметно выше второй модели
