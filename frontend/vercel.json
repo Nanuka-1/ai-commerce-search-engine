@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/chat/:path*", "destination": "https://ai-commerce-search-engine.vercel.app/chat/:path*" },
+    { "source": "/promo/:path*", "destination": "https://ai-commerce-search-engine.vercel.app/promo/:path*" }
+  ]
+}
