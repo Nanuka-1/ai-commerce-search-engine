@@ -169,7 +169,8 @@ def main():
     print(f"Наших моделей среди новинок: {result['matched_pages']} из {result['new_pages']}; "
           f"стали новинкой: {result['set_new']} вариантов, перестали: {result['unset_new']}")
     if result["set_new"] or result["unset_new"]:
-        cache_service.clear()
+        cache_service.bump_catalog_version()     # 03.11: вместо clear() (flushdb стёр бы разговоры)
+        print("Номер дня каталога обновлён — «новинки» в поиске сразу свежие.")
 
 
 if __name__ == "__main__":

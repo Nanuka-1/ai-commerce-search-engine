@@ -645,8 +645,10 @@ def main(limit: int | None = None):
     )
 
     if total_changes > 0:
-        cache_service.clear()
-        print("Кеш общения очищен (были изменения).")
+        # 03.11: раньше здесь очищался весь кэш — в redis это flushdb: стёр бы разговоры клиентов и кэш ИИ.
+        # Новый «номер дня» → поиск сразу берёт свежие цены, старые записи поиска истекут сами.
+        cache_service.bump_catalog_version()
+        print("Номер дня каталога обновлён (были изменения) — поиск возьмёт свежие данные.")
 
     print("\n=== ИТОГИ СКРАПИНГА ===")
     print(f"Обработано ссылок: {len(urls_to_process) - len(failed_urls)} из {len(urls_to_process)}")

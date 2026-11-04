@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from app.db.models import Product
 from app.db.session import SessionLocal
+from app.services import cache_service
 from app.services.embedding_client import EMBEDDING_MODEL, DailyQuotaExceeded, embed_documents
 from app.services.embedding_text_service import build_embedding_text, text_hash
 
@@ -156,6 +157,11 @@ def main(budget: int = DAILY_BUDGET):
 
     total = db.execute(text("SELECT COUNT(*) FROM product_embeddings")).scalar()
     db.close()
+    # 03.11: точки изменились → смысловой поиск должен считать заново (его кэш — по «номеру дня»).
+    # Даже при остановке на лимите: то, что уже записано, — настоящие изменения.
+    if stale or copy_pages or done_pages:
+        cache_service.bump_catalog_version()
+        print("Номер дня каталога обновлён — смысловой поиск возьмёт новые точки.")
     print(f"\nГотово за {time.perf_counter() - started:.0f} с. Точек в таблице: {total} из {len(cards)}")
     remaining = postponed + len(new_groups) - done_texts
     if remaining:
