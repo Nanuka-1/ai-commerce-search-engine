@@ -19,10 +19,11 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 
 from app.schemas.search_context import SearchContext
-from app.services import llm_client
+from app.services import llm_client, request_timings
 from app.services.llm_text_service import build_prompt, clean_llm_text, should_use_llm, validate_llm_text
 
-DEFAULT_BUDGET_SECONDS = 5     # клиент ждёт LLM не дольше; замер 09.10: 0.9–3.1 с
+DEFAULT_BUDGET_SECONDS = 3     # клиент ждёт LLM не дольше; замер 09.10: 0.9–3.1 с.
+                               # 04.11 (Vercel): 5 → 3 с — в форме Gemini отвечает за ~0.8 с, а 5 с ждали зря
 GEORGIAN = re.compile("[Ⴀ-ჿ]")
 
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="llm")
@@ -64,6 +65,9 @@ def enhance_response(base_response: dict, context: SearchContext,
         return _template(base_response, "not_needed")      # не нашли / вопрос о размере — шаблон точнее
     if not llm_client.is_enabled():
         return _template(base_response, "disabled")
+    if request_timings.understanding_timed_out():
+        # 04.11: понимание в этом сообщении уже не успело → Gemini перегружен → не ждём ещё 3 с, сразу шаблон
+        return _template(base_response, "skipped_after_timeout")
 
     language = _language_of(original_message)
     system, facts = build_prompt(context, original_message, customer_message or context.query or "", language,

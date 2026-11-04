@@ -57,6 +57,14 @@ def note_skipped(errors: list[str] | None) -> None:
     timings[SKIPPED_KEY] = "timeout" if "timeout" in errors else (str(errors[0])[:80] if errors else "no_result")
 
 
+def understanding_timed_out() -> bool:
+    """04.11: в ЭТОМ сообщении ИИ-понимание уже не успело (timeout) → Gemini сейчас перегружен.
+    Текст ИИ после этого почти наверняка тоже не успеет — ai_response_service сразу берёт шаблон.
+    Вне запроса чата (тесты, скрипты) — False."""
+    timings = _current.get()
+    return bool(timings) and timings.get(SKIPPED_KEY) == "timeout"
+
+
 # --- счётчик обращений к базе (SQLAlchemy events) ---
 
 def describe_sql(statement: str) -> str:
