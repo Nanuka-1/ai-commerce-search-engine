@@ -237,7 +237,7 @@ def execute_model_search(
         offset=request.offset,
     )
 
-    cache_service.set(cache_key, context, ttl=60)
+    cache_service.set(cache_key, context, ttl=cache_service.search_cache_ttl())
 
     return context
 
@@ -317,7 +317,7 @@ def execute_brand_size_search(
         offset=request.offset,
     )
 
-    cache_service.set(cache_key, context, ttl=60)
+    cache_service.set(cache_key, context, ttl=cache_service.search_cache_ttl())
 
     return context
 
@@ -452,7 +452,7 @@ def execute_broad_search(
         offset=request.offset,
     )
 
-    cache_service.set(cache_key, context, ttl=60)
+    cache_service.set(cache_key, context, ttl=cache_service.search_cache_ttl())
 
     return context
 
@@ -502,6 +502,8 @@ def search_products(db: Session, request: SearchRequest):
                      f":nobrand={','.join(getattr(request, 'exclude_brands', None) or [])}")
     if getattr(request, "prefer_discount", False):
         cache_key = f"{cache_key}:prefer_discount"          # другой порядок — другой ключ
+    # 03.11: «номер дня» каталога в ключе — после скрапера / новинок новые ключи, старые сами истекут (сутки в redis)
+    cache_key = f"search:v{cache_service.catalog_version()}:{cache_key}"
 
     cached = cache_service.get(cache_key)
 
@@ -569,9 +571,10 @@ def search_products(db: Session, request: SearchRequest):
 
 def get_product_by_sku_service(db: Session, sku: str):
     requested_sku = sku.strip().upper()
+    version = cache_service.catalog_version()     # 03.11: цена / наличие по артикулу — тоже по «номеру дня»
 
     # 1. exact sku search
-    exact_cache_key = f"product:sku:exact:{requested_sku}"
+    exact_cache_key = f"product:v{version}:sku:exact:{requested_sku}"
 
     cached = cache_service.get(exact_cache_key)
 
@@ -597,14 +600,14 @@ def get_product_by_sku_service(db: Session, sku: str):
             total_count=1,
         )
 
-        cache_service.set(exact_cache_key, context, ttl=60)
+        cache_service.set(exact_cache_key, context, ttl=cache_service.search_cache_ttl())
 
         return context
 
     # 2. fallback parsing
     base_sku, size = parse_sku_parts(requested_sku)
 
-    fallback_cache_key = f"product:sku:fallback:{base_sku}"
+    fallback_cache_key = f"product:v{version}:sku:fallback:{base_sku}"
 
     cached = cache_service.get(fallback_cache_key)
 
@@ -628,7 +631,7 @@ def get_product_by_sku_service(db: Session, sku: str):
         total_count=1 if product else 0,
     )
 
-    cache_service.set(fallback_cache_key, context, ttl=60)
+    cache_service.set(fallback_cache_key, context, ttl=cache_service.search_cache_ttl())
 
     return context
 
@@ -641,5 +644,7 @@ def get_model_cards_by_page(db: Session, page: str) -> list[dict]:
 
 def create_new_product(db: Session, product_data: ProductCreate):
     product = create_product(db, product_data)
-    cache_service.clear()
+    # 03.11: был cache_service.clear() — в redis это flushdb: стёр бы и разговоры клиентов, и кэш ИИ.
+    # Новый «номер дня» → поиск сразу видит новый товар, остальное не трогаем.
+    cache_service.bump_catalog_version()
     return product

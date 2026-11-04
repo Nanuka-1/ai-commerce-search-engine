@@ -1,3 +1,19 @@
+"""
+Кэш: memory (одна программа, по умолчанию) или redis (общая память для всех копий программы — Vercel, сервер).
+
+02.11 (подготовка к Vercel + Upstash Redis):
+- Предел ожидания Redis 1 с (`REDIS_TIMEOUT_SECONDS`): Redis недоступен → кэш «промахнулся», чат работает дальше,
+  а не висит до таймаута Vercel (раньше ожидание не было ограничено).
+- `ttl=None` / 0 = без срока, как в memory (раньше в redis `setex` с 0 падал).
+- Ошибка подключения / ответа Redis → предупреждение в лог и поведение «как будто ключа нет» (как раньше).
+
+03.11: «номер дня» каталога (версионирование кэша поиска):
+- `catalog:version` — номер, который скрипты (скрапер, новинки, векторы) меняют в конце работы
+  (`bump_catalog_version`). Ключи поиска содержат номер: `search:v<номер>:…` → после обновления каталога
+  старые записи никто не читает, через сутки они сами исчезают. Разговоры (`chat:*`) и ИИ не трогаются.
+- Срок кэша поиска (`search_cache_ttl`): redis — сутки (номер общий для всех программ и скриптов);
+  memory — 60 с, как раньше (у скрипта и у сервера своя память, номер между ними не передаётся).
+"""
 import logging
 import os
 import pickle
@@ -12,9 +28,14 @@ load_dotenv()
 
 CACHE_BACKEND = os.getenv("CACHE_BACKEND", "memory")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_TIMEOUT_SECONDS = float(os.getenv("REDIS_TIMEOUT_SECONDS", "1"))
 
 _cache_store = {}
 _redis_client = None
+
+CATALOG_VERSION_KEY = "catalog:version"
+SEARCH_CACHE_TTL_REDIS = 24 * 3600   # сутки: каталог меняется раз в день (скрапер), смена номера — сразу свежие данные
+SEARCH_CACHE_TTL_MEMORY = 60         # память одной программы: номер дня от скрипта сюда не доходит — коротко, как раньше
 
 
 def _get_redis_client():
@@ -25,7 +46,12 @@ def _get_redis_client():
 
     import redis
 
-    _redis_client = redis.from_url(REDIS_URL)
+    _redis_client = redis.from_url(
+        REDIS_URL,
+        socket_connect_timeout=REDIS_TIMEOUT_SECONDS,   # подключение
+        socket_timeout=REDIS_TIMEOUT_SECONDS,           # каждый ответ
+        health_check_interval=30,                       # проверить соединение, если простаивало (Vercel «замирает»)
+    )
     return _redis_client
 
 
@@ -60,7 +86,8 @@ def get(key: str):
 
         try:
             value = pickle.loads(raw_value)
-        except (UnpicklingError, EOFError, AttributeError, TypeError) as error:
+        except (UnpicklingError, EOFError, AttributeError, TypeError, ImportError) as error:
+            # ImportError / AttributeError: после выкладки новой версии старая запись ссылается на изменённый класс
             logger.warning(
                 "Cache deserialize failed",
                 extra={
@@ -120,14 +147,18 @@ def get(key: str):
     return value
 
 
-def set(key: str, value, ttl: int = 60):
+def set(key: str, value, ttl: int | None = 60):
     if CACHE_BACKEND == "redis":
         from redis.exceptions import RedisError
 
         client = _get_redis_client()
 
         try:
-            client.setex(key, ttl, pickle.dumps(value))
+            data = pickle.dumps(value)
+            if ttl:
+                client.setex(key, int(ttl), data)
+            else:
+                client.set(key, data)            # без срока — как в memory
         except RedisError as error:
             logger.warning(
                 "Cache set failed",
@@ -205,7 +236,9 @@ def delete(key: str):
         },
     )
 
+
 def clear():
+    """Очистить ВЕСЬ кэш. Внимание: в redis — вся база Redis (и разговоры клиентов тоже)."""
     if CACHE_BACKEND == "redis":
         from redis.exceptions import RedisError
 
@@ -239,3 +272,23 @@ def clear():
             "backend": CACHE_BACKEND,
         },
     )
+
+
+def catalog_version() -> str:
+    """Текущий «номер дня» каталога. Нет записи / Redis недоступен → "0" (поиск всё равно работает)."""
+    value = get(CATALOG_VERSION_KEY)
+    return str(value) if value is not None else "0"
+
+
+def bump_catalog_version() -> str:
+    """Каталог изменился (конец скрапера / новинок / векторов, новый товар) → новый номер.
+    Номер — время в наносекундах: всегда новый, без «прочитать-прибавить-записать»."""
+    version = str(time.time_ns())
+    set(CATALOG_VERSION_KEY, version, ttl=None)    # без срока: номер живёт, пока его не сменят
+    logger.info("Catalog version bumped", extra={"backend": CACHE_BACKEND, "version": version})
+    return version
+
+
+def search_cache_ttl() -> int:
+    """Срок записей поиска: сутки в redis, 60 с в памяти."""
+    return SEARCH_CACHE_TTL_REDIS if CACHE_BACKEND == "redis" else SEARCH_CACHE_TTL_MEMORY

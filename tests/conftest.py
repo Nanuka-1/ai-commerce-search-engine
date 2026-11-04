@@ -1,3 +1,5 @@
+import os
+os.environ["CACHE_BACKEND"] = "memory"   # 02.11: тесты никогда не трогают настоящий Redis (clear() = flushdb)
 from pathlib import Path
 
 import pytest

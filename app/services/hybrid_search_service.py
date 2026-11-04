@@ -31,7 +31,7 @@ RRF_K = 60
 SEMANTIC_LIMIT = 20          # сколько ближайших берём из смыслового поиска
 SEMANTIC_MARGIN = 0.08       # смысловое совпадение не хуже лучшего более чем на 0.08
 SEMANTIC_FLOOR = 0.62        # абсолютная планка (замер 12.10): мусор 0.55–0.61, худший осмысленный 0.641
-SEMANTIC_CACHE_TTL = 600     # повтор того же запроса — без нового обращения к Gemini
+SEMANTIC_CACHE_TTL = 600     # (до 03.11) теперь срок — cache_service.search_cache_ttl(): сутки в redis, 60 с в памяти
 
 
 def is_enabled() -> bool:
@@ -93,13 +93,14 @@ def _copy_context(context, **updates):
 def _semantic_results(db, query, size_values, brand, category):
     from app.services.semantic_search_service import semantic_search
 
-    cache_key = f"semantic:{query}|{size_values}|{brand}|{category}"
+    # 03.11: «номер дня» — векторы товаров и наличие меняются вместе с каталогом
+    cache_key = f"semantic:v{cache_service.catalog_version()}:{query}|{size_values}|{brand}|{category}"
     cached = cache_service.get(cache_key)
     if cached is not None:
         return cached
     results = semantic_search(db, query, size_values=size_values, brand=brand,
                               category=category, limit=SEMANTIC_LIMIT)
-    cache_service.set(cache_key, results, ttl=SEMANTIC_CACHE_TTL)
+    cache_service.set(cache_key, results, ttl=cache_service.search_cache_ttl())
     return results
 
 

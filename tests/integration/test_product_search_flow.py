@@ -885,11 +885,11 @@ def test_search_products_returns_valid_search_context_contract(monkeypatch):
 
     assert_search_context_contract(result)
 
-def test_create_new_product_clears_cache(monkeypatch):
-    product_service.cache_service._cache_store["some_search_key"] = {
-        "value": "stale result",
-        "expires_at": None,
-    }
+def test_create_new_product_bumps_catalog_version(monkeypatch):
+    """03.11: новый товар → новый «номер дня» каталога (поиск сразу видит товар).
+    Раньше: cache_service.clear() — в redis это flushdb, стёр бы разговоры клиентов и кэш ИИ."""
+    product_service.cache_service._cache_store["chat:state:u1"] = {"value": "разговор", "expires_at": None}
+    before = product_service.cache_service.catalog_version()
 
     fake_product = make_product(1, "Nike Air Max", brand="nike", sku="NK-1")
 
@@ -901,4 +901,5 @@ def test_create_new_product_clears_cache(monkeypatch):
 
     product_service.create_new_product(db=None, product_data=None)
 
-    assert product_service.cache_service._cache_store == {}
+    assert product_service.cache_service.catalog_version() != before
+    assert "chat:state:u1" in product_service.cache_service._cache_store     # разговор не стёрт
