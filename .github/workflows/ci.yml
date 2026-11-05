@@ -1,10 +1,12 @@
-# CI (был с начала проекта: только тесты). 02.11 добавлено: кэш pip, отмена старых запусков, проверка миграций.
-# CI — при каждом push / pull request в master GitHub сам:
-#   1) ставит Python 3.13 и библиотеки из requirements.txt (заодно проверка, что в файле ничего не забыто);
-#   2) запускает все тесты папки tests/ (как прежний ci.yml) (без секретов: тесты не ходят в Neon и Gemini);
-#   3) поднимает ПУСТУЮ Postgres с pgvector и проверяет миграции Alembic с нуля —
-#      та же репетиция, что 02.11 вручную на базе migration_check.
-# Docker на компьютере не нужен: всё выполняется на серверах GitHub.
+# CI/CD TopSport AI Search.
+# CI (был с начала проекта; 02.11 + кэш pip, проверка миграций): при каждом push / pull request в master GitHub сам
+#   1) ставит Python 3.13 и библиотеки из requirements.txt, запускает все тесты папки tests/ (без секретов);
+#   2) поднимает ПУСТУЮ Postgres с pgvector и проверяет миграции Alembic с нуля.
+# CD (05.11): только push в master и только если 1) и 2) зелёные — конвейер выкладки сервера:
+#   3) миграции на настоящей базе Neon (alembic upgrade head) — СНАЧАЛА шкаф, потом продавец;
+#   4) сборка и выкладка на Vercel (Production);
+#   5) проверка /health/ready (база + Redis отвечают); не ответил → откат на прошлую версию.
+# Виджет (frontend/) Vercel по-прежнему выкладывает сам по push — у него нет базы и миграций.
 name: CI
 
 on:
@@ -13,9 +15,10 @@ on:
   pull_request:
     branches: [master]
 
-concurrency:                       # новый push отменяет ещё идущую проверку старого
+concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # новый push отменяет ещё идущую проверку старого — но НЕ на master: выкладку посреди миграций не обрываем
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   tests:
@@ -82,3 +85,69 @@ jobs:
           alembic downgrade base
           alembic upgrade head
           alembic current
+
+  deploy:
+    name: Deploy (Neon migrations → Vercel → health check)
+    needs: [tests, migrations]                                   # только если обе проверки зелёные
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}               # какая команда в Vercel
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}       # какой проект (сервер, не виджет)
+      PRODUCTION_URL: https://ai-commerce-search-engine.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ③ Шкаф: прямой адрес Neon (без -pooler). Нечего делать → Alembic ничего не трогает.
+      - name: Database migrations (Neon)
+        env:
+          DATABASE_URL: ${{ secrets.MIGRATIONS_DATABASE_URL }}
+        run: |
+          echo "До:";    alembic current
+          alembic upgrade head
+          echo "После:"; alembic current
+
+      # ④ Продавец: собрать и выложить на Vercel по пропуску VERCEL_TOKEN
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to production
+        id: deploy
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      # ⑤ Проверка «как покупатель»: до 10 попыток раз в 6 с (новая версия просыпается)
+      - name: Health check (/health/ready)
+        run: |
+          for attempt in $(seq 1 10); do
+            if curl --fail --silent --show-error "$PRODUCTION_URL/health/ready"; then
+              echo; echo "✅ База и Redis отвечают"; exit 0
+            fi
+            echo " — попытка $attempt не прошла, жду 6 с"; sleep 6
+          done
+          echo "❌ /health/ready не ответил"; exit 1
+
+      # Проверка не прошла, а выкладка была → вернуть прошлую рабочую версию
+      - name: Roll back to previous production version
+        if: failure() && steps.deploy.outcome == 'success'
+        run: vercel rollback --token=${{ secrets.VERCEL_TOKEN }}

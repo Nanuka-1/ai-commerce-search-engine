@@ -5,5 +5,8 @@
     "app/main.py": {
       "maxDuration": 30
     }
+  },
+  "git": {
+    "deploymentEnabled": false
   }
 }
