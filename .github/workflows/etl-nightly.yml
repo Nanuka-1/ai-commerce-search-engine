@@ -1,0 +1,78 @@
+# Ночное обновление каталога (ETL): каждую ночь GitHub сам запускает наши скрипты по очереди.
+#   1. scrape_category       — цены, наличие, новые товары, выключение пропавших
+#   2. collect_new_products  — флаг «новинка» (is_new)
+#   3. build_embeddings      — смысловые «отпечатки» текста для новых/изменённых товаров
+#   4. build_image_embeddings — «отпечатки» фото (дневной лимит Gemini)
+# Если шаг упал — следующие НЕ запускаются (по умолчанию в GitHub Actions), придёт письмо.
+name: ETL nightly
+
+on:
+  schedule:
+    # Время в UTC. 01:41 UTC = 05:41 Тбилиси (UTC+4, без перехода на летнее время).
+    # Сайт сам обновляется из своей базы в 01:00 → к 05:41 он уже свежий (запас 4+ часа).
+    # Скрапер ~1.5 ч + векторы → готово примерно к 07:30–08:00, до открытия магазина.
+    # Минута 41, а не 00 — в :00 у GitHub очередь, запуск может опоздать.
+    - cron: "41 1 * * *"
+  workflow_dispatch:            # кнопка «Run workflow» для ручного запуска
+    inputs:
+      limit:
+        description: "Пусто = полный прогон. Число = только столько ссылок (проба)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# Два прогона одновременно писали бы в одну базу — не допускаем.
+# cancel-in-progress: false — новый запуск ждёт, а не убивает идущий.
+concurrency:
+  group: etl-nightly
+  cancel-in-progress: false
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    environment: etl            # шкафчик с ключами из Doppler (только ветка master)
+    timeout-minutes: 240        # скрапер ~75–90 мин + эмбеддинги; запас до 4 ч (лимит GitHub 6 ч)
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      REDIS_URL: ${{ secrets.REDIS_URL }}
+      CACHE_BACKEND: ${{ secrets.CACHE_BACKEND }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      LLM_ENABLED: ${{ secrets.LLM_ENABLED }}
+      LLM_MODELS: ${{ secrets.LLM_MODELS }}
+      LLM_TIMEOUT_SECONDS: ${{ secrets.LLM_TIMEOUT_SECONDS }}
+      SEMANTIC_SEARCH_ENABLED: ${{ secrets.SEMANTIC_SEARCH_ENABLED }}
+      PYTHONUNBUFFERED: "1"     # печать сразу видна в логе
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: 1. Scrape catalog
+        env:
+          SCRAPE_LIMIT: ${{ inputs.limit }}   # при ночном запуске пусто → полный прогон
+        run: |
+          python -c "
+          import os
+          from ingestion.scrape_category import main
+          limit = os.environ.get('SCRAPE_LIMIT', '').strip()
+          main(limit=int(limit) if limit else None)
+          "
+
+      - name: 2. New collection flags
+        run: python -m ingestion.collect_new_products
+
+      - name: 3. Text embeddings
+        run: python -m ingestion.build_embeddings
+
+      - name: 4. Image embeddings
+        run: python -m ingestion.build_image_embeddings
