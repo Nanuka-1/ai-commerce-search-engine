@@ -124,7 +124,9 @@ jobs:
           node-version: "22"
 
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: |
+          npm install --global vercel@latest
+          pip install uv        # 06.11: `vercel build` собирает Python-сервер через uv (без него: «uv is required but was not found»)
 
       - name: Pull Vercel project settings
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
