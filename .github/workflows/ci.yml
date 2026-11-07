@@ -124,7 +124,7 @@ jobs:
           node-version: "22"
 
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: npm install --global vercel@65.12.1   # закреплено 08.11 (CI #30 прошёл на ней); обновлять вручную
 
       # 06.11: собирает сам Vercel (как раньше по git — у него всё нужное), а КОГДА выкладывать решает конвейер.
       # Сборка на компьютере GitHub (`vercel build` + `--prebuilt`) упала: сначала не было uv,
