@@ -385,20 +385,28 @@ def split_sku_and_size(raw_sku: str | None) -> tuple[str | None, str | None]:
     except ValueError:
         return raw_sku, None
 
+# 08.11: сайт сменил вёрстку страницы товара (после 09.10): размеры теперь кнопки
+#   <ul class="pd-sizes"><li><button class="pd-size">44.5</button></li>…</ul>
+# Старая разметка (div.attr-size ul.size-filter li a) оставлена запасным вариантом.
+SIZE_SELECTORS = [
+    "ul.pd-sizes button.pd-size",          # новая вёрстка (ноябрь 2026)
+    "div.attr-size ul.size-filter li a",   # старая вёрстка (до октября 2026)
+]
+
+
 def extract_sizes_from_html(html: str) -> list[str]:
     soup = BeautifulSoup(html, "html.parser")
 
-    size_list = soup.select_one("div.attr-size ul.size-filter")
-    if not size_list:
-        return []
+    for selector in SIZE_SELECTORS:
+        sizes = []
+        for tag in soup.select(selector):
+            size = tag.get_text(strip=True)
+            if size and size not in sizes:
+                sizes.append(size)
+        if sizes:
+            return sizes
 
-    sizes = []
-    for link in size_list.select("li a"):
-        size = link.get_text(strip=True)
-        if size and size not in sizes:
-            sizes.append(size)
-
-    return sizes
+    return []
 
 
 MIN_SCRAPE_COVERAGE_RATIO = 0.5
