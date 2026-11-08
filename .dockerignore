@@ -1,0 +1,60 @@
+# .dockerignore — что НЕ класть в коробку (образ).
+# Принцип: в образ попадает только то, что нужно серверу для работы.
+# Всё остальное — лишний вес, лишнее время сборки, а секреты — ещё и опасность.
+
+# --- 1. Секреты: никогда не в образ (ключи передаём при запуске) ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- 2. История и настройки git, CI, хостинга ---
+.git
+.gitignore
+.github
+.vercel
+vercel.json
+.vercelignore
+
+# --- 3. Виртуальные окружения и кэш Python (внутри коробки свой Python) ---
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+htmlcov
+.mypy_cache
+.ruff_cache
+
+# --- 4. Редакторы ---
+.idea
+.vscode
+
+# --- 5. Не нужно серверу: тесты, документация, фронтенд (у него свой проект на Vercel) ---
+tests
+docs
+*.md
+frontend
+node_modules
+
+# --- 6. Скрипты замеров и проверок из корня (запускаются руками, не сервером) ---
+check_*.py
+measure_*.py
+eval_search.py
+load_test.py
+photo_probe.py
+photo_eval
+prometheus.yml
+pytest.ini
+debug_*.html
+
+# --- 7. Временные файлы скрапера и локальные базы ---
+ingestion/scrape_checkpoint.txt
+ingestion/scraped_skus*
+*.db
+*.sqlite
+*.sqlite3
+*.log
